@@ -1,41 +1,35 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from "vue";
-import { readStrFromCopyBoard, urlReg } from "./utils";
+import RecursiveShow from "./components/recursiveShow.vue";
+import { effectAttr, getAttrRecursive, reqPermission, urlReg } from "./utils";
 
 const input = ref<HTMLInputElement | null>(null);
 const state = reactive({
   inputVal: "",
+  checkbox: new Set<string>(...[effectAttr.slice(0, 4)]),
 });
 
-const effectAttr = [
-  "hash",
-  "host",
-  "hostname",
-  "href",
-  "origin",
-  "pathname",
-  "port",
-  "protocol",
-  "search",
-  "searchParams",
-  "username",
-] as const;
-
 const showProps = computed(() => {
-  return state.inputVal.match(urlReg) ? new URL(state.inputVal) : null;
+  const res = getAttrRecursive(state.inputVal, [...state.checkbox]);
+  console.log(res);
+  return res;
 });
 
 const setTextWhenVisible = () => {
-  readStrFromCopyBoard().then((text) => {
+  input.value?.focus();
+  navigator.clipboard?.readText().then((text) => {
     if (text.match(urlReg)) {
       state.inputVal = text;
     }
   });
 };
 
-onMounted(() => {
-  input.value?.focus();
+const changeConfig = (key: string) => {
+  state.checkbox[state.checkbox.has(key) ? "delete" : "add"](key);
+};
 
+onMounted(async () => {
+  await reqPermission();
   setTextWhenVisible();
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible") {
@@ -46,27 +40,33 @@ onMounted(() => {
 </script>
 
 <template>
-  <aside class="flex-1 px-5 py-5">
+  <aside>
     <input
-      class="w-full h-10 rounded-full px-5 py-2"
+      class="w-full h-10 rounded-full px-5 py-2 mb-4"
       ref="input"
       v-model="state.inputVal"
       type="text"
     />
   </aside>
-  <main class="flex-1">
-    <header class="flex gap-4 flex-wrap">
+  <hr />
+  <main>
+    <header class="flex gap-4 flex-wrap py-2">
       <div v-for="key in effectAttr" :key="key">
-        <input :id="key" type="checkbox" class="mr-2" />
+        <input
+          :id="key"
+          type="checkbox"
+          class="mr-1"
+          name="config"
+          @click="changeConfig(key)"
+          :checked="state.checkbox.has(key)"
+        />
         <label class="inline-block cursor-pointer" :for="key">{{ key }}</label>
       </div>
     </header>
+    <hr />
 
-    <div v-if="showProps" class="px-5 py-5">
-      <div v-for="key in effectAttr" v-show="showProps?.[key]" :key="key">
-        <span class="font-semibold mr-2">{{ key }}: </span>
-        <span> {{ showProps?.[key] }}</span>
-      </div>
+    <div v-if="showProps" class="py-5">
+      <RecursiveShow :level="0" :values="showProps" keyname="Link" />
     </div>
   </main>
 </template>
